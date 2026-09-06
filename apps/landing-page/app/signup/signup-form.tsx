@@ -1,30 +1,125 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, SubmitEvent, useState } from "react";
 import { countries } from "./countries";
 import styles from "./signup.module.css";
+import { useSignUp } from "@clerk/nextjs";
 
 interface SignupFormProps {
   role: "client" | "freelancer";
 }
 
 export function SignupForm({ role }: SignupFormProps) {
+  const { signUp, fetchStatus } = useSignUp();
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState("");
-  const isClient = role === "client";
+  const [isError, setIsError] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setStatus(
-      "The form is ready. Account creation will activate when Clerk is connected.",
-    );
+  const isClient = role === "client";
+  const isLoading = fetchStatus === "fetching";
+
+  function getErrorMessage(error: unknown) {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (error && typeof error === "object" && "message" in error) {
+      return String(error.message);
+    }
+    return "We coudn't create accout. Please check your details and try again.";
   }
 
-  function handleSocialSignup(provider: "Google" | "GitHub") {
-    setStatus(
-      `${provider} signup is ready to activate when Clerk is connected.`,
-    );
+  async function redirectWithSessionToken() {
+    if (!signUp) {
+      return;
+    }
+    const { error } = await signUp.finalize({
+      navigate: async ({ session, decorateUrl }) => {
+        const token = await session.getToken();
+        if (!token) {
+          throw new Error("Clrek did not return the session token.");
+        }
+        window.location.assign(
+          decorateUrl(
+            `/api/sign-up?token=${encodeURIComponent(token)}&role=${encodeURIComponent(role)}`,
+          ),
+        );
+      },
+    });
+    if (error) {
+      throw error;
+    }
+  }
+
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("");
+    setIsError(false);
+    if (!signUp) {
+      setIsError(true);
+      setStatus("Authentication is still loading. Please try again.");
+      return;
+    }
+    const formData = new FormData(event?.currentTarget);
+    const emailAddress = String(formData.get("email") ?? "");
+
+    try {
+      const { error } = await signUp.password({
+        emailAddress,
+        password: String(formData.get("password") ?? ""),
+        firstName: String(formData.get("firstName") ?? ""),
+        lastName: String(formData.get("lastName") ?? ""),
+        legalAccepted: formData.get("terms") === "on",
+        unsafeMetadata: {
+          role,
+          country: String(formData.get("country") ?? ""),
+        },
+      });
+      if (error) {
+        throw error;
+      }
+      if (signUp.status === "complete") {
+        await redirectWithSessionToken();
+        return;
+      }
+      const verification = await signUp.verifications.sendEmailCode();
+      if (verification.error) {
+        throw verification.error;
+      }
+      setPendingEmail(emailAddress);
+      setIsVerifying(true);
+      setStatus("We sent a six-digit verification code to your email.");
+    } catch (error) {
+      setIsError(true);
+      setStatus(getErrorMessage(error));
+    }
+  }
+
+  async function handleSocialSignup(provider: "Google" | "GitHub") {
+    setStatus("");
+    setIsError(false);
+    if (!signUp) {
+      setIsError(true);
+      setStatus("Authentication is still loading. Please try again.");
+      return;
+    }
+    try {
+      const { error } = await signUp.sso({
+        strategy: provider === "Google" ? "oauth_google" : "oauth_github",
+        redirectUrl: `/auth/complete?role=${encodeURIComponent(role)}`,
+        redirectCallbackUrl: `/signup?role=${role}`,
+        unsafeMetadata: { role },
+      });
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      setIsError(true);
+      setStatus(getErrorMessage(error));
+    }
   }
 
   return (
@@ -234,14 +329,19 @@ export function SignupForm({ role }: SignupFormProps) {
 
         <button
           type="submit"
+          disabled={isLoading}
           className="h-12 cursor-pointer w-full rounded-xl bg-[#252724] text-sm font-semibold text-white shadow-sm transition hover:bg-[#3b3e39] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#4c7849]"
         >
-          Create {isClient ? "client" : "freelancer"} account
+          {isLoading
+            ? "Creating account..."
+            : `Create ${isClient ? "client" : "freelancer"} account`}
         </button>
 
         {status && (
           <p
-            className="rounded-xl bg-[#edf5eb] px-4 py-3 text-center text-xs font-medium text-[#4e704b]"
+            className={`rounded-xl bg-[#edf5eb] px-4 py-3 text-center text-xs font-medium text-[#4e704b]
+              ${isError ? "bg-[#fff0ee] text-[#914d45]" : "bg-[#edf5eb] text-[#3e704b]"}
+              `}
             role="status"
           >
             {status}
