@@ -122,6 +122,114 @@ export function SignupForm({ role }: SignupFormProps) {
     }
   }
 
+  async function handleVerification(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("");
+    setIsError(false);
+    if (!signUp) {
+      setIsError(true);
+      setStatus("Authentication is still loading. Please try again.");
+      return;
+    }
+
+    try {
+      const { error } = await signUp.verifications.verifyEmailCode({
+        code: verificationCode,
+      });
+      if (error) {
+        throw error;
+      }
+      if (signUp.status !== "complete") {
+        throw new Error("Your email was verified, but signup is not complete.");
+      }
+      await redirectWithSessionToken();
+    } catch (error) {
+      setIsError(true);
+      setStatus(getErrorMessage(error));
+    }
+  }
+
+  async function resendVerificationCode() {
+    event.preventDefault();
+    setStatus("");
+    setIsError(false);
+    if (!signUp) {
+      return;
+    }
+
+    try {
+      const { error } = await signUp.verifications.sendEmailCode();
+      if (error) {
+        setIsError(true);
+        setStatus(getErrorMessage(error));
+        return;
+      }
+
+      setStatus("A new verification code has been sent.");
+    } catch (error) {
+      setIsError(true);
+      setStatus(getErrorMessage(error));
+    }
+  }
+
+  if (isVerifying) {
+    return (
+      <div className="w-full max-w-md text-left">
+        <button
+          type="button"
+          onClick={() => {
+            void signUp?.reset();
+            setIsVerifying(false);
+            setVerificationCode("");
+            setStatus("");
+          }}
+          className="mb-8 inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#5e625c] transition hover:text-[#252724]"
+        >
+          <span>←</span>
+          Back to account details
+        </button>
+        <div className="text-center">
+          <span className="inline-flex rouded-full bg-[#e9f4e6] px-3 py-1.5 text-xs font-semibold text-[#4f754d]">
+            Verify you email
+          </span>
+          <h1 className={`${styles.formTitle} mt-4 text-[#171916]`}>
+            Check your inbox
+          </h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#72766f]">
+            Enter the six-digit code sent to{" "}
+            <span className="font-semibold text-[#30332f]">{pendingEmail}</span>
+            .
+          </p>
+        </div>
+        <form onSubmit={handleVerification} className="mt-8 space-y-5">
+          <label className="grid gap-2 text-sm font-semibold text-[#30332f]">
+            Verification code
+            <input
+              value={verificationCode}
+              onChange={(event) =>
+                setVerificationCode(event.target.value.replace(/\D/g, ""))
+              }
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              minLength={6}
+              maxLength={6}
+              required
+              autoFocus
+              className="h-12 rounded-xl border border-black/13 bg-white px-4 text-center font-mono text-lg tracking-[0.35em] outline-none transition placeholder:text-[#a2a59f] focus:border-[#5d8b59] focus:ring-3 focus:ring-[#dcebd9]"
+              placeholder="00000"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || verificationCode.length !== 6}
+              className="h-12 w-full cursor-pointer rounded-xl bg-[#252724] text-sm font-semibold text-white shadow-sm transition hover:bg-[#3b3e39] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isLoading ? "Verifying..." : "Verify and continue"}
+            </button>
+          </label>
+        </form>
+      </div>
+    );
+  }
   return (
     <div className="w-full max-w-md text-left">
       <Link
