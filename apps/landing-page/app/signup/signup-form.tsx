@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, SubmitEvent, useState } from "react";
+import { SubmitEvent, useState } from "react";
 import { countries } from "./countries";
 import styles from "./signup.module.css";
 import { useSignUp } from "@clerk/nextjs";
@@ -150,7 +150,6 @@ export function SignupForm({ role }: SignupFormProps) {
   }
 
   async function resendVerificationCode() {
-    event.preventDefault();
     setStatus("");
     setIsError(false);
     if (!signUp) {
@@ -225,6 +224,22 @@ export function SignupForm({ role }: SignupFormProps) {
             >
               {isLoading ? "Verifying..." : "Verify and continue"}
             </button>
+            <button
+              type="button"
+              onClick={() => void resendVerificationCode()}
+              disabled={isLoading}
+              className="w-full cursor-pointer text-center  text-sm font-semibold text-[#497446] disabled:opacity-50"
+            >
+              Send a new code
+            </button>
+            {status && (
+              <p
+                className={`rounded-xl px-4 py-3 text-center text-xs font-medium ${isError ? "bg-[#fff0ee] text-[#9a4d45]" : "bg-[#edf5eb] text-[#4d704b]"}`}
+                role={isError ? "alert" : "status"}
+              >
+                {status}
+              </p>
+            )}
           </label>
         </form>
       </div>

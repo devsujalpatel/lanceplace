@@ -7,7 +7,7 @@ export const apiRouter = Router();
 apiRouter.get("/health", (_request, response) => {
   const body: ApiResponse<{
     service: string;
-    status: "healthy",
+    status: "healthy";
     timestamp: string;
   }> = {
     success: true,
@@ -16,7 +16,7 @@ apiRouter.get("/health", (_request, response) => {
       service: SERVICE_NAME,
       status: "healthy",
       timestamp: new Date().toISOString(),
-    }
+    },
   };
   response.status(200).json(body);
-})
+});
