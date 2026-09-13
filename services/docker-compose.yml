@@ -16,15 +16,17 @@ services:
     command:
       - sh
       - -c
-      - >
-        exec redi-server
-        --requirepass "$${REDIS_PASSWORD}"
-        --appendonly yes
-        --maxmemory 1gb
-        --maxmemory-policy allkeys-lru
+      - |
+        exec redis-server \
+          --requirepass "$$REDIS_PASSWORD" \
+          --appendonly yes \
+          --maxmemory 1gb \
+          --maxmemory-policy allkeys-lru
 
     healthcheck:
-      test: ["CMD-SHELL", 'redis-cli - "$${REDIS_PASSSWORD}" ping | grep PONG']
+      test:
+        - CMD-SHELL
+        - 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG'
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,6 +39,7 @@ services:
     ports:
       - "127.0.0.1:4222:4222"
       - "127.0.0.1:8222:8222"
+
     volumes:
       - nats_data:/data/jetstream
 
@@ -46,5 +49,5 @@ services:
       - "--http_port=8222"
 
 volumes:
-    redis_data:
-    nats_data:
+  redis_data:
+  nats_data:
