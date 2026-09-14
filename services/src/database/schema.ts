@@ -9,7 +9,7 @@ import {
 
 export const accountRole = pgEnum("account_role", ["FREELANCER", "CLIENT"]);
 
-export const account = pgTable("accounts", {
+export const accounts = pgTable("accounts", {
   id: uuid("id").defaultRandom().primaryKey(),
   auth_id: text("auth_id").notNull(),
   email: text("email").notNull(),
